@@ -1,0 +1,349 @@
+package com.ssn.test.helpers;
+/*
+ * CInputs.java
+ *
+ * Created on August 10, 2000, 2:45 PM
+ */
+
+
+import java.io.*;
+import java.util.Vector;
+
+/**
+ *
+ * @author  calin
+ * @version 
+ */
+public class CInputs extends Object implements RbtDataFile
+{
+    
+    private String m_strFileName;
+    private FileInputStream m_streamIn;
+    private byte m_buffer[];
+    // const max_line_size = 100;
+    
+    /** Creates new CInputs */
+    public CInputs() 
+    {
+        m_strFileName = null;
+        m_streamIn = null;
+        m_buffer = new byte[100];
+    }
+    
+    // methods from RbtDataFile interface
+    // open the data file specified as parameter
+    public void OpenFile(String strFileName) throws FileNotFoundException
+    {
+        m_strFileName = strFileName;
+        m_streamIn = new FileInputStream(m_strFileName);
+    }
+    
+    /*
+    FileNotFoundException, IOException, StreamCorruptedException,
+    OptionalDataException, ClassNotFoundException
+    */
+    
+    // read a line from the file, remove CR and LF characters 
+    // and store the resulting string in strLine parameter
+    // return a flag to tell us if the read was succesfull or not
+    public boolean ReadLine(StringBuffer strLine)
+    {
+        if (null != m_streamIn)
+        {
+            byte ch = 0;
+            while (-1 != ch)
+            {
+                int i = 0;
+                
+                try
+                {
+                    ch = (byte) m_streamIn.read();
+                    while (ch != 10 && ch != -1 )
+                    {
+                        m_buffer[i++] = ch;
+                        ch = (byte) m_streamIn.read();
+
+                    }
+                    if ( i > 0 )
+                    { // I have some interesting characters read
+                        m_buffer[--i] = 0;
+                        String tmpString = new String(m_buffer, 0, i);
+                        strLine.replace(0, strLine.length(), tmpString);
+                        return true;
+                }
+                    else
+                    { // invalid row read --> ignore
+                    }
+                }
+                catch(IOException e)
+                {
+                }
+            }
+        }
+            
+        return false;
+    }
+
+}
+
+
+package com.ssn.test.helpers;
+
+public class Constrangere {
+
+    int id_articol, id_nod_curent, id_nod_anterior;
+
+    public Constrangere(int id_articol, int id_nod_curent, int id_nod_anterior) {
+        this.id_articol = id_articol;
+        this.id_nod_curent = id_nod_curent;
+        this.id_nod_anterior = id_nod_anterior;
+    }
+}
+
+
+
+package com.ssn.test.helpers;
+
+public class Container {
+    int nr_container;
+    int id_articol;
+
+    public Container(int nr_container, int id_articol) {
+     
+        this.nr_container = nr_container;
+        this.id_articol = id_articol;
+    }
+}
+
+
+
+package com.ssn.test.helpers;
+
+import java.io.FileNotFoundException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+
+public class Main {
+
+	public static ArrayList<Segment> drumIntermediar = new ArrayList<>();
+	public static ArrayList<Segment> drumFinal = null;
+	static ArrayList<Container> containers = getContainers();
+	static ArrayList<Constrangere> constrangeri = getConstrangeri();
+	static ArrayList<Segment> segmente = getSegmente();
+
+	static int nrSolutions = 0;
+
+	public static void initialize() {
+		nrSolutions = 0;
+	}
+
+	public static void main(String[] args) {
+
+		Scanner scanner = new Scanner(System.in);
+		for (; ; ) {
+			System.out.println("Tastati x daca doriti sa iesiti din program");
+			System.out.println("Tastati n daca doriti sa aflati un drum");
+
+			char optiune;
+
+			System.out.print("Introduceti optiunea dumneavoastra: ");
+			optiune = scanner.next().charAt(0);
+
+			if (optiune == 'n') {
+				System.out.print("Introduceti numarul containerului: ");
+				byte nr_container = scanner.nextByte();
+				Container container = getContainer(containers, nr_container);
+
+				List<Constrangere> drumuriPosibile = getDrumuriStartEnd(container.id_articol);
+				initialize();
+				drumuriPosibile.stream()
+				.forEach(v -> back(container, 0, v.id_nod_anterior, v.id_nod_curent));
+				if (nrSolutions == 0) {
+					System.out.println("Nu exista rezultat");
+				}
+			} else {
+				break;
+			}
+		}
+
+	}
+
+	public static List<Constrangere> getDrumuriStartEnd(int id_articol) {
+
+		return constrangeri.stream()
+				.filter(v -> v.id_articol == id_articol)
+				.collect(Collectors.toList());
+	}
+
+	public static boolean contansIntermediar(int intermediar) {
+		int nr = (int) drumIntermediar.stream()
+				.filter(v -> v.start == intermediar)
+				.count();
+		return nr != 0;
+	}
+
+
+	public static void back(Container container, int start, int intermediar, int end) {
+
+		for (Segment segment : segmente) {
+			if (segment.start == start) {
+				drumIntermediar.add(segment);
+				if(segment.end == end) {
+					if(contansIntermediar(intermediar))  {
+						drumFinal = (ArrayList<Segment>) drumIntermediar.clone();
+						afisareRezultat();
+						nrSolutions++;
+						drumIntermediar.remove(drumIntermediar.size() - 1);
+					}
+					break;
+				}
+				back(container, segment.end, intermediar, end);
+				drumIntermediar.remove(drumIntermediar.size() - 1);
+
+			}
+		}
+
+	}
+
+	public static Container getContainer(ArrayList<Container> containers, int index) {
+		for (Container container : containers) {
+			if (index == container.nr_container) {
+				return container;
+			}
+		}
+		return null;
+	}
+
+
+	private static void afisareRezultat() {
+
+		for (Segment segment : drumFinal) {
+			System.out.print("(" + segment.start + ", " + segment.end + ") ");
+		}
+		System.out.println();
+	}
+
+	private static ArrayList<Constrangere> getConstrangeri() {
+		ArrayList<Constrangere> constrangeri = new ArrayList<Constrangere>();
+		CInputs stream = new CInputs();
+		StringBuffer str = new StringBuffer();
+
+		try {
+			stream.OpenFile("input\\art_routes.txt");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		while (stream.ReadLine(str)) {
+			StringTokenizer tokenizer = new StringTokenizer(str.toString(), ",");
+			int first = Integer.parseInt(tokenizer.nextToken());
+			int second = Integer.parseInt(tokenizer.nextToken());
+			int third = Integer.parseInt(tokenizer.nextToken());
+
+
+			constrangeri.add(new Constrangere(first, second, third));
+		}
+
+
+		return constrangeri;
+	}
+
+	private static ArrayList<Container> getContainers() {
+		ArrayList<Container> containers = new ArrayList<>();
+		CInputs stream = new CInputs();
+		StringBuffer str = new StringBuffer();
+
+		try {
+			stream.OpenFile("input\\inputs.txt");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		//citesc tot si salvez in buffer
+		while (stream.ReadLine(str)) {
+			StringTokenizer tokenizer = new StringTokenizer(str.toString(), ",");
+
+			int first = Integer.parseInt(tokenizer.nextToken());
+			int second = Integer.parseInt(tokenizer.nextToken());
+			containers.add(new Container(first, second));
+
+		}
+
+
+		return containers;
+	}
+
+	private static ArrayList<Segment> getSegmente() {
+		ArrayList<Segment> segmente = new ArrayList<>();
+		CInputs stream = new CInputs();
+		try {
+			stream.OpenFile("input\\routes.txt");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		StringBuffer str = new StringBuffer();
+
+		while (stream.ReadLine(str)) {
+			StringTokenizer tokenizer = new StringTokenizer(str.toString(), ",");
+			int first = Integer.parseInt(tokenizer.nextToken());
+			int second = Integer.parseInt(tokenizer.nextToken());
+
+
+			segmente.add(new Segment(first, second));
+		}
+
+
+		return segmente;
+	}
+}
+
+
+
+
+package com.ssn.test.helpers;
+/*
+ * RbtDataFile.java
+ *
+ * Created on August 10, 2000, 6:03 PM
+ */
+
+import java.io.*;
+
+/**
+ *
+ * @author  calin
+ * @version 
+ */
+public interface RbtDataFile {
+    
+    // open the data file specified as parameter
+    public void OpenFile(String strFileName) throws FileNotFoundException;
+    
+    /*
+    FileNotFoundException, IOException, StreamCorruptedException,
+    OptionalDataException, ClassNotFoundException
+    */
+    
+    // read a line from the file, remove CR and LF characters 
+    // and store the resulting string in strLine parameter
+    // return a flag to tell us if the read was succesfull or not
+    // if there are no more lines on the file then this method 
+    // return false
+    public boolean ReadLine(StringBuffer strLine);
+}
+
+
+
+package com.ssn.test.helpers;
+
+public class Segment {
+
+    int start, end;
+
+    public Segment(int start, int end) {
+        this.start = start;
+        this.end = end;
+    }
+}
+
+
+
